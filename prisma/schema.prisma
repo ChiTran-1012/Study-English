@@ -51,3 +51,161 @@ model ClassMember {
 
   @@unique([classId, studentId])
 }
+
+enum Skill {
+  LISTENING
+  SPEAKING
+  READING
+  WRITING
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ExerciseSource {
+  MANUAL
+  AI
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  FILL_BLANK
+  REORDER
+  MATCHING
+  LISTENING
+  SPEAKING
+  WRITING
+}
+
+model Grade {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+
+  topics  Topic[]
+  lessons Lesson[]
+}
+
+model Topic {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  gradeId     String
+
+  grade   Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+}
+
+model Lesson {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  gradeId     String
+  topicId     String
+  content     String?
+  createdAt   DateTime @default(now())
+
+  grade Grade @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+model Exercise {
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  gradeId     String
+  topicId     String
+  skill       Skill
+  difficulty  Difficulty
+  source      ExerciseSource
+  createdBy   String
+  createdAt   DateTime       @default(now())
+
+  questions Question[]
+}
+
+model Question {
+  id            String       @id @default(uuid())
+  exerciseId    String
+  type          QuestionType
+  content       String
+  correctAnswer String?
+  explanation   String?
+  order         Int
+
+  exercise Exercise         @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  options  QuestionOption[]
+}
+
+model QuestionOption {
+  id         String  @id @default(uuid())
+  questionId String
+  content    String
+  isCorrect  Boolean @default(false)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model Assignment {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  classId     String
+  teacherId   String
+  startDate   DateTime
+  dueDate     DateTime
+  createdAt   DateTime @default(now())
+
+  submissions Submission[]
+}
+
+model Submission {
+  id           String    @id @default(uuid())
+  assignmentId String
+  studentId    String
+  score        Float?
+  startedAt    DateTime  @default(now())
+  submittedAt  DateTime?
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  answers    Answer[]
+}
+
+model Answer {
+  id           String   @id @default(uuid())
+  submissionId String
+  questionId   String
+  answer       String?
+  isCorrect    Boolean?
+  score        Float?
+  feedback     String?
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+}
+
+model LearningProgress {
+  id                 String   @id @default(uuid())
+  studentId          String
+  skill              Skill
+  averageScore       Float    @default(0)
+  completedExercises Int      @default(0)
+  updatedAt          DateTime @updatedAt
+}
+
+model AIGeneration {
+  id           String     @id @default(uuid())
+  userId       String
+  gradeId      String
+  topicId      String?
+  skill        Skill
+  questionType String
+  difficulty   Difficulty
+  quantity     Int
+  prompt       String
+  result       Json
+  createdAt    DateTime   @default(now())
+}
