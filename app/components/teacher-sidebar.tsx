@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import LogoutButton from './logout-button';
 
 export default function TeacherSidebar(){
     return (
@@ -16,7 +17,7 @@ export default function TeacherSidebar(){
                 <Link href="/teacher/exercises" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>Exercises</Link>
                 <Link href="/teacher/ai-generator" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>AI Generator</Link>
                 <Link href="/teacher/analytics" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>Analytics</Link>
-
+                <LogoutButton/>
             </nav>
         </aside>
     )

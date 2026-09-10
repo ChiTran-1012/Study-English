@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 
         // Tạo JWT
         const token = await new SignJWT({
-            userId: user.id,
+            id: user.id,
             email: user.email,
             role: user.role,
         })
