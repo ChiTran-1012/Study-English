@@ -7,37 +7,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  ADMIN
-  TEACHER
-  STUDENT
-}
-
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role
-  avatar    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  password     String
+  role         Role
+  avatar       String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   classes      Class[]
   classMembers ClassMember[]
+  exercises    Exercise[]
 }
 
 model Class {
-  id          String   @id @default(uuid())
+  id          String        @id @default(uuid())
   name        String
-  code        String   @unique
+  code        String        @unique
   grade       Int
   description String?
   teacherId   String
-  createdAt   DateTime @default(now())
-
-  teacher User          @relation(fields: [teacherId], references: [id])
-  members ClassMember[]
+  createdAt   DateTime      @default(now())
+  teacher     User          @relation(fields: [teacherId], references: [id])
+  members     ClassMember[]
 }
 
 model ClassMember {
@@ -45,11 +38,139 @@ model ClassMember {
   classId   String
   studentId String
   joinedAt  DateTime @default(now())
-
-  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
-  student User  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([classId, studentId])
+}
+
+model Grade {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  lessons     Lesson[]
+  topics      Topic[]
+}
+
+model Topic {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  gradeId     String
+  lessons     Lesson[]
+  grade       Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+}
+
+model Lesson {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  gradeId     String
+  topicId     String
+  content     String?
+  createdAt   DateTime @default(now())
+  grade       Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  topic       Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+model Exercise {
+  id          String         @id @default(uuid())
+  title       String
+  description String?
+  skill       Skill
+  difficulty  Difficulty
+  source      ExerciseSource @default(MANUAL)
+  createdAt   DateTime       @default(now())
+  teacherId   String
+  updatedAt   DateTime       @updatedAt
+  teacher     User           @relation(fields: [teacherId], references: [id])
+  questions   Question[]
+}
+
+model Question {
+  id            String           @id @default(uuid())
+  exerciseId    String
+  type          QuestionType
+  content       String
+  correctAnswer String?
+  explanation   String?
+  order         Int
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  exercise      Exercise         @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  options       QuestionOption[]
+}
+
+model QuestionOption {
+  id         String   @id @default(uuid())
+  questionId String
+  content    String
+  isCorrect  Boolean  @default(false)
+  label      String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model Assignment {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  classId     String
+  teacherId   String
+  startDate   DateTime
+  dueDate     DateTime
+  createdAt   DateTime     @default(now())
+  submissions Submission[]
+}
+
+model Submission {
+  id           String     @id @default(uuid())
+  assignmentId String
+  studentId    String
+  score        Float?
+  startedAt    DateTime   @default(now())
+  submittedAt  DateTime?
+  answers      Answer[]
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+}
+
+model Answer {
+  id           String     @id @default(uuid())
+  submissionId String
+  questionId   String
+  answer       String?
+  isCorrect    Boolean?
+  score        Float?
+  feedback     String?
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+}
+
+model LearningProgress {
+  id                 String   @id @default(uuid())
+  studentId          String
+  skill              Skill
+  averageScore       Float    @default(0)
+  completedExercises Int      @default(0)
+  updatedAt          DateTime @updatedAt
+}
+
+model AIGeneration {
+  id           String     @id @default(uuid())
+  userId       String
+  gradeId      String
+  topicId      String?
+  skill        Skill
+  questionType String
+  difficulty   Difficulty
+  quantity     Int
+  prompt       String
+  result       Json
+  createdAt    DateTime   @default(now())
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
 }
 
 enum Skill {
@@ -79,133 +200,4 @@ enum QuestionType {
   LISTENING
   SPEAKING
   WRITING
-}
-
-model Grade {
-  id          String  @id @default(uuid())
-  name        String
-  description String?
-
-  topics  Topic[]
-  lessons Lesson[]
-}
-
-model Topic {
-  id          String  @id @default(uuid())
-  name        String
-  description String?
-  gradeId     String
-
-  grade   Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-  lessons Lesson[]
-}
-
-model Lesson {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  gradeId     String
-  topicId     String
-  content     String?
-  createdAt   DateTime @default(now())
-
-  grade Grade @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-  topic Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
-}
-
-model Exercise {
-  id          String         @id @default(uuid())
-  title       String
-  description String?
-  gradeId     String
-  topicId     String
-  skill       Skill
-  difficulty  Difficulty
-  source      ExerciseSource
-  createdBy   String
-  createdAt   DateTime       @default(now())
-
-  questions Question[]
-}
-
-model Question {
-  id            String       @id @default(uuid())
-  exerciseId    String
-  type          QuestionType
-  content       String
-  correctAnswer String?
-  explanation   String?
-  order         Int
-
-  exercise Exercise         @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  options  QuestionOption[]
-}
-
-model QuestionOption {
-  id         String  @id @default(uuid())
-  questionId String
-  content    String
-  isCorrect  Boolean @default(false)
-
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-}
-
-model Assignment {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  classId     String
-  teacherId   String
-  startDate   DateTime
-  dueDate     DateTime
-  createdAt   DateTime @default(now())
-
-  submissions Submission[]
-}
-
-model Submission {
-  id           String    @id @default(uuid())
-  assignmentId String
-  studentId    String
-  score        Float?
-  startedAt    DateTime  @default(now())
-  submittedAt  DateTime?
-
-  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  answers    Answer[]
-}
-
-model Answer {
-  id           String   @id @default(uuid())
-  submissionId String
-  questionId   String
-  answer       String?
-  isCorrect    Boolean?
-  score        Float?
-  feedback     String?
-
-  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-}
-
-model LearningProgress {
-  id                 String   @id @default(uuid())
-  studentId          String
-  skill              Skill
-  averageScore       Float    @default(0)
-  completedExercises Int      @default(0)
-  updatedAt          DateTime @updatedAt
-}
-
-model AIGeneration {
-  id           String     @id @default(uuid())
-  userId       String
-  gradeId      String
-  topicId      String?
-  skill        Skill
-  questionType String
-  difficulty   Difficulty
-  quantity     Int
-  prompt       String
-  result       Json
-  createdAt    DateTime   @default(now())
 }
