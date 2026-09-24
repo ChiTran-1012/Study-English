@@ -40,6 +40,42 @@ export default function ExerciseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const handleDeleteQuestion = async (questionId: string) => {
+    const confirmDelete = window.confirm(
+      "Bạn có chắc muốn xóa câu hỏi này?"
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch(
+        `/api/questions/${questionId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Xóa câu hỏi thất bại");
+        return;
+      }
+
+      alert("Xóa câu hỏi thành công");
+
+      setExercise((prev: any) => ({
+        ...prev,
+        questions: prev.questions.filter(
+          (question: any) => question.id !== questionId
+        ),
+      }));
+    } catch (error) {
+      console.error(error);
+      alert("Có lỗi xảy ra");
+    }
+  };
+
   useEffect(() => {
     const fetchExercise = async () => {
       try {
@@ -166,14 +202,12 @@ export default function ExerciseDetailPage() {
           Câu hỏi ({exercise.questions?.length ?? 0})
         </h2>
 
-        <button
+        <Link
+          href={`/teacher/exercises/${id}/questions/create`}
           className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-          onClick={() => {
-            alert("Chúng ta sẽ làm chức năng thêm câu hỏi tiếp theo.");
-          }}
         >
           + Thêm câu hỏi
-        </button>
+        </Link>
       </div>
 
       {(exercise.questions?.length ?? 0) === 0 ? (
@@ -187,14 +221,41 @@ export default function ExerciseDetailPage() {
               key={question.id}
               className="rounded-lg border p-5 shadow-sm"
             >
-              <div className="mb-4">
-                <p className="font-semibold">
-                  Câu {index + 1}
-                </p>
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p className="font-semibold">
+                    Câu {index + 1}
+                  </p>
 
-                <p className="mt-2 text-lg">
-                  {question.content}
-                </p>
+                  <p className="mt-2 text-lg">
+                    {question.content}
+                  </p>
+                </div>
+
+                <Link
+                  href={`/teacher/exercises/${exercise.id}/questions/${question.id}/edit`}
+                  className="rounded-lg border px-3 py-1 text-sm hover:bg-gray-50"
+                >
+                  Sửa
+                </Link>
+
+                <button
+                  onClick={() =>
+                    handleDeleteQuestion(question.id)
+                  }
+                  className="rounded-lg border border-red-500 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  Xóa
+                </button>
+              </div>
+
+              <div className="mb-3">
+                <Link
+                  href={`/teacher/exercises/${id}/questions/${question.id}/options/create`}
+                  className="inline-block rounded-lg border border-blue-600 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                >
+                  + Thêm đáp án
+                </Link>
               </div>
 
               {/* Options */}
@@ -203,22 +264,90 @@ export default function ExerciseDetailPage() {
                   {question.options.map((option) => (
                     <div
                       key={option.id}
-                      className={`rounded-md border p-3 ${
-                        option.isCorrect
-                          ? "border-green-500 bg-green-50"
-                          : ""
-                      }`}
+                      className={`flex items-center justify-between rounded-md border p-3 ${option.isCorrect
+                        ? "border-green-500 bg-green-50"
+                        : ""
+                        }`}
                     >
-                      <span className="font-semibold">
-                        {option.label}.
-                      </span>{" "}
-                      {option.content}
+                      <div>
+                        <span className="font-semibold">
+                          {option.label}.
+                        </span>{" "}
+                        {option.content}
 
-                      {option.isCorrect && (
-                        <span className="ml-2 text-sm font-semibold text-green-600">
-                          ✓ Đáp án đúng
-                        </span>
-                      )}
+                        {option.isCorrect && (
+                          <span className="ml-2 text-sm font-semibold text-green-600">
+                            ✓ Đáp án đúng
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={async () => {
+                          const confirmed = confirm(
+                            "Bạn có chắc muốn xóa đáp án này?"
+                          );
+
+                          if (!confirmed) return;
+
+                          try {
+                            const response = await fetch(
+                              `/api/questions/${question.id}/options`,
+                              {
+                                method: "DELETE",
+                                headers: {
+                                  "Content-Type":
+                                    "application/json",
+                                },
+                                body: JSON.stringify({
+                                  optionId: option.id,
+                                }),
+                              }
+                            );
+
+                            const data = await response.json();
+
+                            if (!response.ok) {
+                              throw new Error(
+                                data.message ||
+                                "Không thể xóa đáp án"
+                              );
+                            }
+
+                            setExercise((prev) => {
+                              if (!prev) return prev;
+
+                              return {
+                                ...prev,
+                                questions:
+                                  prev.questions.map((q) => {
+                                    if (q.id !== question.id) {
+                                      return q;
+                                    }
+
+                                    return {
+                                      ...q,
+                                      options:
+                                        q.options.filter(
+                                          (o) =>
+                                            o.id !== option.id
+                                        ),
+                                    };
+                                  }),
+                              };
+                            });
+                          } catch (error) {
+                            alert(
+                              error instanceof Error
+                                ? error.message
+                                : "Có lỗi xảy ra"
+                            );
+                          }
+                        }}
+                        className="text-sm text-red-600 hover:underline"
+                      >
+                        Xóa
+                      </button>
                     </div>
                   ))}
                 </div>

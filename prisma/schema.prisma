@@ -19,6 +19,7 @@ model User {
   classes      Class[]
   classMembers ClassMember[]
   exercises    Exercise[]
+  assignments  Assignment[]
 }
 
 model Class {
@@ -31,6 +32,7 @@ model Class {
   createdAt   DateTime      @default(now())
   teacher     User          @relation(fields: [teacherId], references: [id])
   members     ClassMember[]
+  assignments Assignment[]
 }
 
 model ClassMember {
@@ -85,6 +87,7 @@ model Exercise {
   updatedAt   DateTime       @updatedAt
   teacher     User           @relation(fields: [teacherId], references: [id])
   questions   Question[]
+  assignments Assignment[]
 }
 
 model Question {
@@ -111,15 +114,29 @@ model QuestionOption {
 }
 
 model Assignment {
-  id          String       @id @default(uuid())
-  title       String
+  id String @id @default(uuid())
+
+  exerciseId String
+  classId    String
+  teacherId  String
+
+  title       String?
   description String?
-  classId     String
-  teacherId   String
-  startDate   DateTime
-  dueDate     DateTime
-  createdAt   DateTime     @default(now())
+
+  startAt DateTime  @default(now())
+  dueAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exercise    Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  class       Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  teacher     User         @relation(fields: [teacherId], references: [id])
   submissions Submission[]
+
+  @@index([exerciseId])
+  @@index([classId])
+  @@index([teacherId])
 }
 
 model Submission {

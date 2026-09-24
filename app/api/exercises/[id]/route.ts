@@ -11,7 +11,9 @@ const secret = new TextEncoder().encode(
 // ===============================
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: {
+    params: Promise<{ id: string }>;
+  }
 ) {
   try {
     const token = request.cookies.get("token")?.value;
@@ -36,10 +38,13 @@ export async function GET(
 
     const { id } = await context.params;
 
+    console.log("Exercise ID:", id);
+    console.log("Teacher ID:", teacherId);
+
     const exercise = await prisma.exercise.findFirst({
       where: {
-        id,
-        teacherId,
+        id: id,
+        teacherId: teacherId,
       },
       include: {
         questions: {
@@ -53,6 +58,8 @@ export async function GET(
       },
     });
 
+    console.log("Exercise:", exercise);
+
     if (!exercise) {
       return NextResponse.json(
         { message: "Không tìm thấy bài tập" },
@@ -60,14 +67,12 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      exercise,
-    });
+    return NextResponse.json(exercise);
   } catch (error) {
     console.error("GET EXERCISE ERROR:", error);
 
     return NextResponse.json(
-      { message: "Không thể lấy bài tập" },
+      { message: "Lỗi server" },
       { status: 500 }
     );
   }

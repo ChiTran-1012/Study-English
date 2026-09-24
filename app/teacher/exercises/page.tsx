@@ -25,35 +25,64 @@ export default function TeacherExercisesPage() {
     loadExercises();
   }, []);
 
-  async function loadExercises() {
+  // =========================
+  // LOAD EXERCISES
+  // =========================
+  const loadExercises = async () => {
     try {
       setLoading(true);
       setError("");
 
       const response = await fetch("/api/exercises");
 
-      const data = await response.json();
+      const text = await response.text();
+
+      console.log(
+        "GET /api/exercises status:",
+        response.status
+      );
+
+      console.log(
+        "GET /api/exercises response:",
+        text
+      );
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Không thể lấy danh sách bài tập"
+          `API lỗi ${response.status}: ${
+            text || "Không có nội dung"
+          }`
         );
       }
 
-      setExercises(data.exercises || []);
+      const data: Exercise[] = text
+        ? JSON.parse(text)
+        : [];
+
+      console.log("EXERCISES DATA:", data);
+
+      setExercises(data);
     } catch (error) {
-      console.error("LOAD EXERCISES ERROR:", error);
+      console.error(
+        "LOAD EXERCISES ERROR:",
+        error
+      );
 
       setError(
         error instanceof Error
           ? error.message
-          : "Có lỗi xảy ra"
+          : "Không thể tải danh sách bài tập"
       );
     } finally {
+      // QUAN TRỌNG:
+      // Luôn tắt loading dù thành công hay lỗi
       setLoading(false);
     }
-  }
+  };
 
+  // =========================
+  // DELETE EXERCISE
+  // =========================
   async function handleDelete(id: string) {
     const confirmed = window.confirm(
       "Bạn có chắc muốn xóa bài tập này?"
@@ -69,21 +98,42 @@ export default function TeacherExercisesPage() {
         }
       );
 
-      const data = await response.json();
+      const text = await response.text();
+
+      console.log(
+        "DELETE EXERCISE status:",
+        response.status
+      );
+
+      console.log(
+        "DELETE EXERCISE response:",
+        text
+      );
+
+      const data = text
+        ? JSON.parse(text)
+        : {};
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Không thể xóa bài tập"
+          data.message ||
+            "Không thể xóa bài tập"
         );
       }
 
+      // Xóa khỏi giao diện ngay
       setExercises((prev) =>
-        prev.filter((exercise) => exercise.id !== id)
+        prev.filter(
+          (exercise) => exercise.id !== id
+        )
       );
 
       alert("Xóa bài tập thành công");
     } catch (error) {
-      console.error("DELETE EXERCISE ERROR:", error);
+      console.error(
+        "DELETE EXERCISE ERROR:",
+        error
+      );
 
       alert(
         error instanceof Error
@@ -93,6 +143,9 @@ export default function TeacherExercisesPage() {
     }
   }
 
+  // =========================
+  // SKILL
+  // =========================
   function getSkillName(skill: string) {
     switch (skill) {
       case "READING":
@@ -112,7 +165,12 @@ export default function TeacherExercisesPage() {
     }
   }
 
-  function getDifficultyName(difficulty: string) {
+  // =========================
+  // DIFFICULTY
+  // =========================
+  function getDifficultyName(
+    difficulty: string
+  ) {
     switch (difficulty) {
       case "EASY":
         return "Easy";
@@ -128,10 +186,18 @@ export default function TeacherExercisesPage() {
     }
   }
 
+  // =========================
+  // SOURCE
+  // =========================
   function getSourceName(source: string) {
-    return source === "AI" ? "AI" : "Manual";
+    return source === "AI"
+      ? "AI"
+      : "Manual";
   }
 
+  // =========================
+  // LOADING
+  // =========================
   if (loading) {
     return (
       <div className="p-6">
@@ -140,9 +206,14 @@ export default function TeacherExercisesPage() {
     );
   }
 
+  // =========================
+  // PAGE
+  // =========================
   return (
     <div className="p-6">
-      {/* Header */}
+      {/* =========================
+          HEADER
+      ========================== */}
 
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -163,15 +234,32 @@ export default function TeacherExercisesPage() {
         </Link>
       </div>
 
-      {/* Error */}
+      {/* =========================
+          ERROR
+      ========================== */}
 
       {error && (
         <div className="mb-4 rounded-lg bg-red-100 p-4 text-red-700">
-          {error}
+          <p className="font-medium">
+            Không thể tải bài tập
+          </p>
+
+          <p className="mt-1 text-sm">
+            {error}
+          </p>
+
+          <button
+            onClick={loadExercises}
+            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+          >
+            Thử lại
+          </button>
         </div>
       )}
 
-      {/* Empty */}
+      {/* =========================
+          EMPTY
+      ========================== */}
 
       {!error && exercises.length === 0 && (
         <div className="rounded-xl border bg-white p-10 text-center shadow-sm">
@@ -192,7 +280,9 @@ export default function TeacherExercisesPage() {
         </div>
       )}
 
-      {/* Exercise list */}
+      {/* =========================
+          EXERCISE LIST
+      ========================== */}
 
       {exercises.length > 0 && (
         <div className="space-y-4">
@@ -202,6 +292,10 @@ export default function TeacherExercisesPage() {
               className="rounded-xl border bg-white p-5 shadow-sm"
             >
               <div className="flex items-start justify-between gap-4">
+                {/* =========================
+                    EXERCISE INFO
+                ========================== */}
+
                 <div>
                   <h2 className="text-lg font-semibold">
                     {exercise.title}
@@ -213,10 +307,20 @@ export default function TeacherExercisesPage() {
                     </p>
                   )}
 
+                  {/* =========================
+                      TAGS
+                  ========================== */}
+
                   <div className="mt-3 flex flex-wrap gap-2">
+                    {/* Skill */}
+
                     <span className="rounded-full bg-blue-100 px-3 py-1 text-sm text-blue-700">
-                      {getSkillName(exercise.skill)}
+                      {getSkillName(
+                        exercise.skill
+                      )}
                     </span>
+
+                    {/* Difficulty */}
 
                     <span className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700">
                       {getDifficultyName(
@@ -224,17 +328,30 @@ export default function TeacherExercisesPage() {
                       )}
                     </span>
 
+                    {/* Source */}
+
                     <span className="rounded-full bg-green-100 px-3 py-1 text-sm text-green-700">
-                      {getSourceName(exercise.source)}
+                      {getSourceName(
+                        exercise.source
+                      )}
                     </span>
 
+                    {/* Question count */}
+
                     <span className="rounded-full bg-purple-100 px-3 py-1 text-sm text-purple-700">
-                      {exercise.questions.length} câu
+                      {exercise.questions?.length ?? 0}{" "}
+                      câu
                     </span>
                   </div>
                 </div>
 
+                {/* =========================
+                    ACTIONS
+                ========================== */}
+
                 <div className="flex gap-2">
+                  {/* View */}
+
                   <Link
                     href={`/teacher/exercises/${exercise.id}`}
                     className="rounded-lg border px-3 py-2 text-sm hover:bg-gray-50"
@@ -242,9 +359,13 @@ export default function TeacherExercisesPage() {
                     Xem
                   </Link>
 
+                  {/* Delete */}
+
                   <button
                     onClick={() =>
-                      handleDelete(exercise.id)
+                      handleDelete(
+                        exercise.id
+                      )
                     }
                     className="rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700"
                   >
