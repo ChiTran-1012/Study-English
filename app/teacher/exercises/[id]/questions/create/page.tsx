@@ -41,13 +41,28 @@ export default function CreateQuestionPage() {
         }
       );
 
-      const data = await response.json();
+      const text = await response.text();
 
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Không thể tạo câu hỏi"
-        );
-      }
+console.log("CREATE OPTION STATUS:", response.status);
+console.log("CREATE OPTION RESPONSE:", text);
+
+let data: any = {};
+
+try {
+  data = text ? JSON.parse(text) : {};
+} catch {
+  throw new Error(
+    `API trả về dữ liệu không hợp lệ. HTTP ${response.status}`
+  );
+}
+
+if (!response.ok) {
+  throw new Error(
+    data.message ||
+      data.error ||
+      `Không thể thêm đáp án. HTTP ${response.status}`
+  );
+}
 
       alert("Thêm câu hỏi thành công!");
 

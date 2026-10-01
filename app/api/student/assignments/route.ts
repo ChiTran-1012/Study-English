@@ -76,7 +76,6 @@ export async function GET(request: NextRequest) {
           in: classIds,
         },
       },
-
       include: {
         exercise: {
           select: {
@@ -103,14 +102,47 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
+
+        submissions: {
+          where: {
+            studentId,
+          },
+          select: {
+            id: true,
+            score: true,
+            submittedAt: true,
+          },
+        },
       },
 
       orderBy: {
         createdAt: "desc",
       },
     });
+    const now = new Date();
 
-    return NextResponse.json(assignments);
+    const result = assignments.map((assignment) => {
+      const submission = assignment.submissions[0] ?? null;
+
+      let status: "NOT_STARTED" | "SUBMITTED" | "EXPIRED";
+
+      if (submission?.submittedAt) {
+        status = "SUBMITTED";
+      } else if (assignment.dueAt && assignment.dueAt < now) {
+        status = "EXPIRED";
+      } else {
+        status = "NOT_STARTED";
+      }
+
+      return {
+        ...assignment,
+        submission,
+        status,
+      };
+    });
+
+    return NextResponse.json(result);
+    
   } catch (error) {
     console.error(
       "GET STUDENT ASSIGNMENTS ERROR:",

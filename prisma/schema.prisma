@@ -20,6 +20,7 @@ model User {
   classMembers ClassMember[]
   exercises    Exercise[]
   assignments  Assignment[]
+  submissions  Submission[]
 }
 
 model Class {
@@ -140,14 +141,21 @@ model Assignment {
 }
 
 model Submission {
-  id           String     @id @default(uuid())
+  id           String    @id @default(uuid())
   assignmentId String
   studentId    String
   score        Float?
-  startedAt    DateTime   @default(now())
   submittedAt  DateTime?
-  answers      Answer[]
-  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers    Answer[]
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+  @@index([studentId])
 }
 
 model Answer {

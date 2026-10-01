@@ -3,10 +3,17 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+type Submission = {
+  id: string;
+  score: number | null;
+  submittedAt: string | null;
+};
+
 type Assignment = {
   id: string;
   title: string | null;
   description: string | null;
+
   startAt: string;
   dueAt: string | null;
 
@@ -29,6 +36,25 @@ type Assignment = {
     id: string;
     name: string;
   };
+
+  submission: Submission | null;
+
+  status: "NOT_STARTED" | "SUBMITTED" | "EXPIRED";
+};
+
+const getStatusText = (
+  status: Assignment["status"]
+) => {
+  switch (status) {
+    case "SUBMITTED":
+      return "Đã nộp";
+
+    case "EXPIRED":
+      return "Hết hạn";
+
+    default:
+      return "Chưa làm";
+  }
 };
 
 export default function StudentAssignmentsPage() {
@@ -64,7 +90,7 @@ export default function StudentAssignmentsPage() {
         if (!response.ok) {
           throw new Error(
             text ||
-              "Không thể tải bài tập"
+            "Không thể tải bài tập"
           );
         }
 
@@ -232,23 +258,56 @@ export default function StudentAssignmentsPage() {
                       Hạn nộp
                     </p>
 
+
                     <p className="font-medium">
                       {formatDate(
                         assignment.dueAt
                       )}
                     </p>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-sm font-medium ${assignment.status === "SUBMITTED"
+                        ? "bg-green-100 text-green-700"
+                        : assignment.status === "EXPIRED"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-yellow-100 text-yellow-700"
+                        }`}
+                    >
+                      {getStatusText(assignment.status)}
+                    </span>
+
+                    {assignment.submission && (
+                      <p className="mt-2 font-medium">
+                        Điểm: {assignment.submission.score ?? 0}/10
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 {/* Button */}
-                <div className="mt-5">
-                  <Link
+                {assignment.status === "NOT_STARTED" && (
+                  <a
                     href={`/student/assignments/${assignment.id}`}
-                    className="block w-full rounded-lg bg-blue-600 px-4 py-2 text-center text-white hover:bg-blue-700"
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
                   >
-                    Xem bài tập
-                  </Link>
-                </div>
+                    Làm bài
+                  </a>
+                )}
+
+                {assignment.status === "SUBMITTED" && (
+                  <a
+                    href={`/student/assignments/${assignment.id}`}
+                    className="rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-700"
+                  >
+                    Xem bài
+                  </a>
+                )}
+
+                {assignment.status === "EXPIRED" && (
+                  <span className="rounded-lg bg-gray-200 px-4 py-2 text-gray-500">
+                    Đã hết hạn
+                  </span>
+                )}
               </div>
             )
           )}

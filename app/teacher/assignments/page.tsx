@@ -200,6 +200,12 @@ export default function AssignmentsPage() {
                 >
                   Xóa
                 </button>
+                <a
+                  href={`/teacher/assignments/${assignment.id}/results`}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700"
+                >
+                  Xem kết quả
+                </a>
               </div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2">
