@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import LogoutButton from './logout-button';
 
-export default function TeacherSidebar(){
+export default function TeacherSidebar() {
     return (
         <aside className='flex min-h-screen w-64 flex-col border-r bg-white p-5'>
             <div className='mb-8'>
@@ -16,8 +16,11 @@ export default function TeacherSidebar(){
                 <Link href="/teacher/students" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>Students</Link>
                 <Link href="/teacher/exercises" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>Exercises</Link>
                 <Link href="/teacher/ai-generator" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>AI Generator</Link>
-                <Link href="/teacher/assignments" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>Analytics</Link>
-                <LogoutButton/>
+                <Link href="/teacher/assignments" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>Assignments</Link>
+                <Link href="/teacher/statistics" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>
+                    Thống kê
+                </Link>
+                <LogoutButton />
             </nav>
         </aside>
     )

@@ -7,7 +7,7 @@ type ProgressData = {
   completedAssignments: number;
   pendingAssignments: number;
   averageScore: number;
-  skills: {
+  skillProgress: {
     LISTENING: number;
     SPEAKING: number;
     READING: number;
@@ -15,7 +15,10 @@ type ProgressData = {
   };
 };
 
-const skillLabels: Record<string, string> = {
+const skillLabels: Record<
+  string,
+  string
+> = {
   LISTENING: "Listening",
   SPEAKING: "Speaking",
   READING: "Reading",
@@ -24,13 +27,18 @@ const skillLabels: Record<string, string> = {
 
 export default function StudentProgressPage() {
   const [progress, setProgress] =
-    useState<ProgressData | null>(null);
+    useState<ProgressData | null>(
+      null
+    );
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
 
   useEffect(() => {
-    const loadProgress = async () => {
+    async function loadProgress() {
       try {
         setLoading(true);
         setError("");
@@ -39,31 +47,45 @@ export default function StudentProgressPage() {
           "/api/student/progress"
         );
 
-        const text = await response.text();
+        const text =
+          await response.text();
 
         console.log(
-          "Progress status:",
+          "PROGRESS STATUS:",
           response.status
         );
 
         console.log(
-          "Progress response:",
+          "PROGRESS RESPONSE:",
           text
         );
 
-        if (!response.ok) {
+        let data: any = {};
+
+        try {
+          data = text
+            ? JSON.parse(text)
+            : {};
+        } catch {
           throw new Error(
-            text || "Không thể lấy tiến độ"
+            `API trả về dữ liệu không hợp lệ. HTTP ${response.status}`
           );
         }
 
-        const data = text
-          ? JSON.parse(text)
-          : null;
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              data.error ||
+              "Không thể tải tiến độ"
+          );
+        }
 
         setProgress(data);
       } catch (error) {
-        console.error(error);
+        console.error(
+          "LOAD PROGRESS ERROR:",
+          error
+        );
 
         setError(
           error instanceof Error
@@ -73,72 +95,98 @@ export default function StudentProgressPage() {
       } finally {
         setLoading(false);
       }
-    };
+    }
 
     loadProgress();
   }, []);
 
+  // =========================
+  // Loading
+  // =========================
   if (loading) {
     return (
       <div className="p-6">
-        Đang tải tiến độ học tập...
+        <p className="text-gray-600">
+          Đang tải tiến độ học tập...
+        </p>
       </div>
     );
   }
 
+  // =========================
+  // Error
+  // =========================
   if (error) {
     return (
       <div className="p-6">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-600">
-          {error}
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="font-medium text-red-700">
+            {error}
+          </p>
         </div>
       </div>
     );
   }
 
   if (!progress) {
-    return (
-      <div className="p-6">
-        Không có dữ liệu tiến độ.
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="p-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">
           Tiến độ học tập
         </h1>
 
-        <p className="mt-1 text-gray-500">
-          Theo dõi kết quả học tập của bạn
+        <p className="mt-1 text-gray-600">
+          Theo dõi kết quả học tập của bạn.
         </p>
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* =========================
+          Summary
+      ========================= */}
+      <div className="grid gap-4 md:grid-cols-4">
+        {/* Total */}
         <div className="rounded-xl border bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">
             Tổng số bài
           </p>
 
-          <p className="mt-2 text-3xl font-bold">
+          <p className="mt-2 text-3xl font-bold text-gray-900">
             {progress.totalAssignments}
           </p>
         </div>
 
+        {/* Completed */}
         <div className="rounded-xl border bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">
             Đã hoàn thành
           </p>
 
           <p className="mt-2 text-3xl font-bold text-green-600">
-            {progress.completedAssignments}
+            {
+              progress.completedAssignments
+            }
           </p>
         </div>
 
+        {/* Pending */}
+        <div className="rounded-xl border bg-white p-5 shadow-sm">
+          <p className="text-sm text-gray-500">
+            Chưa hoàn thành
+          </p>
+
+          <p className="mt-2 text-3xl font-bold text-orange-500">
+            {
+              progress.pendingAssignments
+            }
+          </p>
+        </div>
+
+        {/* Average */}
         <div className="rounded-xl border bg-white p-5 shadow-sm">
           <p className="text-sm text-gray-500">
             Điểm trung bình
@@ -150,66 +198,47 @@ export default function StudentProgressPage() {
         </div>
       </div>
 
-      {/* Pending */}
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold">
-              Bài tập chưa hoàn thành
-            </h2>
-
-            <p className="mt-1 text-sm text-gray-500">
-              Số bài bạn chưa nộp
-            </p>
-          </div>
-
-          <span className="text-2xl font-bold text-orange-500">
-            {progress.pendingAssignments}
-          </span>
-        </div>
-      </div>
-
-      {/* Skills */}
-      <div className="rounded-xl border bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold">
+      {/* =========================
+          Skills
+      ========================= */}
+      <div className="mt-6 rounded-xl border bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-gray-900">
           Tiến độ theo 4 kỹ năng
         </h2>
 
-        <p className="mt-1 text-sm text-gray-500">
-          Điểm trung bình của các bài đã nộp
-        </p>
+        <div className="mt-6 space-y-6">
+          {Object.entries(
+            progress.skillProgress
+          ).map(
+            ([skill, score]) => (
+              <div key={skill}>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-medium text-gray-700">
+                    {skillLabels[skill] ||
+                      skill}
+                  </span>
 
-        <div className="mt-6 space-y-5">
-          {Object.entries(progress.skills).map(
-            ([skill, score]) => {
-              const percentage = Math.min(
-                score * 10,
-                100
-              );
-
-              return (
-                <div key={skill}>
-                  <div className="mb-2 flex justify-between">
-                    <span className="font-medium">
-                      {skillLabels[skill]}
-                    </span>
-
-                    <span className="font-semibold">
-                      {score}/10
-                    </span>
-                  </div>
-
-                  <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-                    <div
-                      className="h-full rounded-full bg-blue-500 transition-all"
-                      style={{
-                        width: `${percentage}%`,
-                      }}
-                    />
-                  </div>
+                  <span className="font-semibold text-gray-900">
+                    {score}/100
+                  </span>
                 </div>
-              );
-            }
+
+                <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                  <div
+                    className="h-full rounded-full bg-blue-600 transition-all"
+                    style={{
+                      width: `${Math.min(
+                        Math.max(
+                          score,
+                          0
+                        ),
+                        100
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )
           )}
         </div>
       </div>

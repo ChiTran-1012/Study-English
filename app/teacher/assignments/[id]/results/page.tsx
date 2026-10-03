@@ -1,109 +1,144 @@
 "use client";
 
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 
-type Student = {
-  id: string;
-  name: string;
-  email: string;
-};
-
-type Result = {
-  id: string;
-  student: Student;
-  score: number;
-  correctCount: number;
-  totalQuestions: number;
-  submittedAt: string | null;
-};
-
-type AssignmentData = {
-  id: string;
-  title: string | null;
-  exercise: {
-    id: string;
-    title: string;
-    questions: {
-      id: string;
-    }[];
-  };
-  class: {
+type StudentResult = {
+  student: {
     id: string;
     name: string;
-    code: string;
-    grade: number;
+    email: string;
   };
+
+  status: "SUBMITTED" | "NOT_SUBMITTED";
+
+  score: number | null;
+
+  submittedAt: string | null;
+
+  submissionId: string | null;
+};
+
+type AssignmentResult = {
+  assignment: {
+    id: string;
+    title: string | null;
+    description: string | null;
+
+    exercise: {
+      id: string;
+      title: string;
+      skill: string;
+      difficulty: string;
+    };
+
+    class: {
+      id: string;
+      name: string;
+      code: string;
+      grade: number;
+    } | null;
+
+    startAt: string;
+    dueAt: string | null;
+  };
+
+  statistics: {
+    totalStudents: number;
+    submittedStudents: number;
+    notSubmittedStudents: number;
+    averageScore: number;
+  };
+
+  results: StudentResult[];
 };
 
 export default function AssignmentResultsPage() {
   const params = useParams();
-  const router = useRouter();
 
-  const assignmentId = params.id as string;
+  const id = params.id as string;
 
-  const [assignment, setAssignment] =
-    useState<AssignmentData | null>(null);
-
-  const [results, setResults] = useState<Result[]>([]);
+  const [data, setData] =
+    useState<AssignmentResult | null>(null);
 
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
+  // ====================================================
+  // Load results
+  // ====================================================
+
   useEffect(() => {
-    const loadResults = async () => {
+    if (!id) return;
+
+    const fetchResults = async () => {
       try {
         setLoading(true);
+        setError("");
 
         const response = await fetch(
-          `/api/teacher/assignments/${assignmentId}/submissions`
+          `/api/assignments/${id}/results`
         );
 
         const text = await response.text();
 
-        const data = text ? JSON.parse(text) : {};
+        console.log(
+          "RESULT STATUS:",
+          response.status
+        );
+
+        console.log(
+          "RESULT RESPONSE:",
+          text
+        );
+
+        const result = text
+          ? JSON.parse(text)
+          : null;
 
         if (!response.ok) {
           throw new Error(
-            data.message || "Không thể tải kết quả"
+            result?.error ||
+              `API lỗi ${response.status}`
           );
         }
 
-        setAssignment(data.assignment);
-        setResults(data.results || []);
+        setData(result);
       } catch (error) {
-        console.error(error);
+        console.error(
+          "LOAD RESULTS ERROR:",
+          error
+        );
 
         setError(
           error instanceof Error
             ? error.message
-            : "Có lỗi xảy ra"
+            : "Không thể tải kết quả"
         );
       } finally {
         setLoading(false);
       }
     };
 
-    if (assignmentId) {
-      loadResults();
-    }
-  }, [assignmentId]);
+    fetchResults();
+  }, [id]);
 
-  const formatDate = (date: string | null) => {
-    if (!date) {
-      return "Chưa nộp";
-    }
-
-    return new Date(date).toLocaleString("vi-VN");
-  };
+  // ====================================================
+  // Loading
+  // ====================================================
 
   if (loading) {
     return (
       <div className="p-6">
-        Đang tải kết quả...
+        <p>Đang tải kết quả...</p>
       </div>
     );
   }
+
+  // ====================================================
+  // Error
+  // ====================================================
 
   if (error) {
     return (
@@ -115,164 +150,251 @@ export default function AssignmentResultsPage() {
     );
   }
 
-  if (!assignment) {
+  if (!data) {
     return (
       <div className="p-6">
-        Không tìm thấy bài tập.
+        Không có dữ liệu.
       </div>
     );
   }
 
-  return (
-    <div className="p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <button
-          onClick={() => router.back()}
-          className="mb-4 text-sm text-blue-600 hover:underline"
-        >
-          ← Quay lại
-        </button>
+  const {
+    assignment,
+    statistics,
+    results,
+  } = data;
 
-        <h1 className="text-2xl font-bold">
-          Kết quả bài tập
+  // ====================================================
+  // Format date
+  // ====================================================
+
+  const formatDate = (
+    date: string | null
+  ) => {
+    if (!date) return "—";
+
+    return new Date(date).toLocaleString(
+      "vi-VN"
+    );
+  };
+
+  // ====================================================
+  // UI
+  // ====================================================
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+
+      <div>
+        <a
+          href="/teacher/assignments"
+          className="text-blue-600 hover:underline"
+        >
+          ← Quay lại Assignment
+        </a>
+
+        <h1 className="mt-3 text-2xl font-bold">
+          {assignment.title ||
+            assignment.exercise.title}
         </h1>
 
-        <div className="mt-2 text-gray-600">
-          <p>
-            <strong>Bài:</strong>{" "}
-            {assignment.title ||
-              assignment.exercise.title}
+        {assignment.description && (
+          <p className="mt-1 text-gray-600">
+            {assignment.description}
+          </p>
+        )}
+      </div>
+
+      {/* Assignment information */}
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border bg-white p-4">
+          <p className="text-sm text-gray-500">
+            Bài tập
           </p>
 
-          <p>
-            <strong>Lớp:</strong>{" "}
-            {assignment.class.name}
+          <p className="mt-1 font-semibold">
+            {assignment.exercise.title}
+          </p>
+        </div>
+
+        <div className="rounded-xl border bg-white p-4">
+          <p className="text-sm text-gray-500">
+            Lớp
           </p>
 
-          <p>
-            <strong>Mã lớp:</strong>{" "}
-            {assignment.class.code}
+          <p className="mt-1 font-semibold">
+            {assignment.class?.name || "—"}
+          </p>
+        </div>
+
+        <div className="rounded-xl border bg-white p-4">
+          <p className="text-sm text-gray-500">
+            Kỹ năng
+          </p>
+
+          <p className="mt-1 font-semibold">
+            {assignment.exercise.skill}
           </p>
         </div>
       </div>
 
       {/* Statistics */}
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">
-            Tổng số học sinh đã nộp
-          </p>
 
-          <p className="mt-2 text-3xl font-bold">
-            {results.length}
-          </p>
-        </div>
+      <div>
+        <h2 className="mb-4 text-xl font-bold">
+          Thống kê
+        </h2>
 
-        <div className="rounded-xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">
-            Số câu hỏi
-          </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Total */}
 
-          <p className="mt-2 text-3xl font-bold">
-            {assignment.exercise.questions.length}
-          </p>
-        </div>
+          <div className="rounded-xl border bg-white p-5">
+            <p className="text-sm text-gray-500">
+              Tổng học sinh
+            </p>
 
-        <div className="rounded-xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">
-            Điểm trung bình
-          </p>
+            <p className="mt-2 text-3xl font-bold">
+              {statistics.totalStudents}
+            </p>
+          </div>
 
-          <p className="mt-2 text-3xl font-bold">
-            {results.length > 0
-              ? (
-                  results.reduce(
-                    (sum, item) => sum + item.score,
-                    0
-                  ) / results.length
-                ).toFixed(2)
-              : "0.00"}
-          </p>
+          {/* Submitted */}
+
+          <div className="rounded-xl border bg-white p-5">
+            <p className="text-sm text-gray-500">
+              Đã nộp
+            </p>
+
+            <p className="mt-2 text-3xl font-bold text-green-600">
+              {statistics.submittedStudents}
+            </p>
+          </div>
+
+          {/* Not submitted */}
+
+          <div className="rounded-xl border bg-white p-5">
+            <p className="text-sm text-gray-500">
+              Chưa nộp
+            </p>
+
+            <p className="mt-2 text-3xl font-bold text-orange-600">
+              {statistics.notSubmittedStudents}
+            </p>
+          </div>
+
+          {/* Average */}
+
+          <div className="rounded-xl border bg-white p-5">
+            <p className="text-sm text-gray-500">
+              Điểm trung bình
+            </p>
+
+            <p className="mt-2 text-3xl font-bold">
+              {statistics.averageScore}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Results table */}
-      <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-        <table className="w-full">
-          <thead className="border-b bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left">
-                #
-              </th>
+      {/* Student results */}
 
-              <th className="px-4 py-3 text-left">
-                Học sinh
-              </th>
+      <div>
+        <h2 className="mb-4 text-xl font-bold">
+          Kết quả học sinh
+        </h2>
 
-              <th className="px-4 py-3 text-left">
-                Email
-              </th>
-
-              <th className="px-4 py-3 text-center">
-                Đúng
-              </th>
-
-              <th className="px-4 py-3 text-center">
-                Điểm
-              </th>
-
-              <th className="px-4 py-3 text-left">
-                Thời gian nộp
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {results.length === 0 ? (
+        <div className="overflow-x-auto rounded-xl border bg-white">
+          <table className="w-full">
+            <thead className="border-b bg-gray-50">
               <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-8 text-center text-gray-500"
-                >
-                  Chưa có học sinh nào nộp bài.
-                </td>
+                <th className="px-4 py-3 text-left">
+                  #
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  Học sinh
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  Email
+                </th>
+
+                <th className="px-4 py-3 text-center">
+                  Trạng thái
+                </th>
+
+                <th className="px-4 py-3 text-center">
+                  Điểm
+                </th>
+
+                <th className="px-4 py-3 text-left">
+                  Thời gian nộp
+                </th>
               </tr>
-            ) : (
-              results.map((result, index) => (
-                <tr
-                  key={result.id}
-                  className="border-b last:border-b-0"
-                >
-                  <td className="px-4 py-3">
-                    {index + 1}
-                  </td>
+            </thead>
 
-                  <td className="px-4 py-3 font-medium">
-                    {result.student.name}
-                  </td>
-
-                  <td className="px-4 py-3 text-gray-600">
-                    {result.student.email}
-                  </td>
-
-                  <td className="px-4 py-3 text-center">
-                    {result.correctCount}/
-                    {result.totalQuestions}
-                  </td>
-
-                  <td className="px-4 py-3 text-center font-bold">
-                    {result.score}/10
-                  </td>
-
-                  <td className="px-4 py-3 text-gray-600">
-                    {formatDate(result.submittedAt)}
+            <tbody>
+              {results.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-8 text-center text-gray-500"
+                  >
+                    Chưa có học sinh trong lớp.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                results.map(
+                  (result, index) => (
+                    <tr
+                      key={result.student.id}
+                      className="border-b last:border-b-0"
+                    >
+                      <td className="px-4 py-3">
+                        {index + 1}
+                      </td>
+
+                      <td className="px-4 py-3 font-medium">
+                        {result.student.name}
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-600">
+                        {result.student.email}
+                      </td>
+
+                      <td className="px-4 py-3 text-center">
+                        {result.status ===
+                        "SUBMITTED" ? (
+                          <span className="rounded-full bg-green-100 px-3 py-1 text-sm text-green-700">
+                            Đã nộp
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600">
+                            Chưa nộp
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 text-center font-semibold">
+                        {result.score !== null
+                          ? result.score
+                          : "—"}
+                      </td>
+
+                      <td className="px-4 py-3 text-gray-600">
+                        {formatDate(
+                          result.submittedAt
+                        )}
+                      </td>
+                    </tr>
+                  )
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
