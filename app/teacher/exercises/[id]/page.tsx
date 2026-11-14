@@ -64,12 +64,16 @@ export default function ExerciseDetailPage() {
 
       alert("Xóa câu hỏi thành công");
 
-      setExercise((prev: any) => ({
-        ...prev,
-        questions: prev.questions.filter(
-          (question: any) => question.id !== questionId
-        ),
-      }));
+      setExercise((previous) =>
+        previous
+          ? {
+              ...previous,
+              questions: previous.questions.filter(
+                (question) => question.id !== questionId
+              ),
+            }
+          : previous
+      );
     } catch (error) {
       console.error(error);
       alert("Có lỗi xảy ra");

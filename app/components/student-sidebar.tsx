@@ -1,29 +1,225 @@
-import Link from 'next/link';
-import LogoutButton from './logout-button';
 
-export default function StudentSidebar() {
+"use client";
+
+import Link from "next/link";
+import LogoutButton from "./logout-button";
+
+const menuItems = [
+    {
+        href: "/student",
+        label: "Dashboard",
+        icon: "📊",
+    },
+    {
+        href: "/student/classes",
+        label: "My Classes",
+        icon: "🏫",
+    },
+    {
+        href: "/student/assignments",
+        label: "Assignments",
+        icon: "📚",
+    },
+    {
+        href: "/student/practice",
+        label: "Practice",
+        icon: "📝",
+    },
+    {
+        href: "/student/progress",
+        label: "My Progress",
+        icon: "📈",
+    },
+    {
+        href: "/student/history",
+        label: "Lịch sử làm bài",
+        icon: "🕐",
+    },
+];
+
+type StudentSidebarProps = {
+    open: boolean;
+    setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+export default function StudentSidebar({
+    open,
+    setOpen,
+}: StudentSidebarProps) {
     return (
-        <aside className='flex min-h-screen w-64 flex-col border-r bg-white p-5'>
-            <div className='mb-8'>
-                <h1 className='text-xl font-bold text-blue-600'>English AI</h1>
+        <aside
+            className={`
+                fixed
+                left-0
+                top-0
+                z-50
+                flex
+                h-screen
+                flex-col
+                border-r
+                border-gray-200
+                bg-white
+                shadow-lg
+                transition-all
+                duration-300
+                ${open ? "w-64" : "w-20"}
+            `}
+        >
+            {/* Header */}
+            <div
+                className={`
+                    flex
+                    h-20
+                    items-center
+                    border-b
+                    border-gray-100
+                    px-4
+                    ${open ? "justify-between" : "justify-center"}
+                `}
+            >
+                {/* Logo */}
+                {open && (
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="
+                                flex
+                                h-10
+                                w-10
+                                items-center
+                                justify-center
+                                rounded-xl
+                                bg-gradient-to-br
+                                from-blue-600
+                                to-indigo-600
+                                text-xl
+                                text-white
+                                shadow-md
+                            "
+                        >
+                            🎓
+                        </div>
 
-                <p className='text-sm text-gray-500'>Student Portal</p>
+                        <div>
+                            <h1 className="font-bold text-gray-800">
+                                English AI
+                            </h1>
+
+                            <p className="text-xs text-gray-400">
+                                Student Portal
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Hamburger */}
+                <button
+                    type="button"
+                    onClick={() => setOpen((value) => !value)}
+                    className="
+                        flex
+                        h-10
+                        w-10
+                        items-center
+                        justify-center
+                        rounded-lg
+                        text-gray-600
+                        transition
+                        hover:bg-gray-100
+                        hover:text-blue-600
+                    "
+                    aria-label="Toggle sidebar"
+                >
+                    <div className="space-y-1.5">
+                        <span className="block h-0.5 w-5 bg-current" />
+                        <span className="block h-0.5 w-5 bg-current" />
+                        <span className="block h-0.5 w-5 bg-current" />
+                    </div>
+                </button>
             </div>
 
-            <nav className='flex flex-col gap-2'>
-                <Link href="/student" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>Dashboard</Link>
-                <Link href="/student/classes" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>My Classes</Link>
-                <Link href="/student/assignments" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>Assignments</Link>
-                <Link href="/student/practice" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>Practice</Link>
-                <Link href="/student/progress" className='rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'>My progress</Link>
-                <Link
-                    href="/student/history"
-                    className="rounded-lg px-4 py-3 text-gray-700 hover:bg-gray-100'"
-                >
-                    Lịch sử làm bài
-                </Link>
-                <LogoutButton />
+            {/* Navigation */}
+            <nav className="flex-1 space-y-2 p-3">
+                {menuItems.map((item) => (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        title={!open ? item.label : undefined}
+                        className="
+                            group
+                            flex
+                            items-center
+                            gap-3
+                            rounded-xl
+                            px-3
+                            py-3
+                            text-gray-600
+                            transition-all
+                            duration-200
+                            hover:bg-blue-50
+                            hover:text-blue-600
+                        "
+                    >
+                        {/* Icon */}
+                        <span
+                            className="
+                                flex
+                                h-10
+                                w-10
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-lg
+                                bg-gray-50
+                                text-lg
+                                transition
+                                group-hover:bg-blue-100
+                            "
+                        >
+                            {item.icon}
+                        </span>
+
+                        {/* Text */}
+                        {open && (
+                            <span className="font-medium">
+                                {item.label}
+                            </span>
+                        )}
+                    </Link>
+                ))}
             </nav>
+
+            {/* Logout */}
+            <div className="border-t border-gray-100 p-3">
+                <div
+                    className={`
+                        flex
+                        items-center
+                        rounded-xl
+                        bg-red-50
+                        p-2
+                        text-red-600
+                        ${open ? "gap-3" : "justify-center"}
+                    `}
+                >
+                    <span
+                        className="
+                            flex
+                            h-10
+                            w-10
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-lg
+                            bg-white
+                            text-lg
+                        "
+                    >
+                        🚪
+                    </span>
+
+                    {open && <LogoutButton />}
+                </div>
+            </div>
         </aside>
-    )
+    );
 }

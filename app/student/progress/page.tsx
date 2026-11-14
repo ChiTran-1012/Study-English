@@ -25,6 +25,23 @@ const skillLabels: Record<
   WRITING: "Writing",
 };
 
+function isProgressData(
+  value: Partial<ProgressData> & { message?: string; error?: string }
+): value is ProgressData {
+  const skills = value.skillProgress;
+  return (
+    typeof value.totalAssignments === "number" &&
+    typeof value.completedAssignments === "number" &&
+    typeof value.pendingAssignments === "number" &&
+    typeof value.averageScore === "number" &&
+    !!skills &&
+    typeof skills.LISTENING === "number" &&
+    typeof skills.SPEAKING === "number" &&
+    typeof skills.READING === "number" &&
+    typeof skills.WRITING === "number"
+  );
+}
+
 export default function StudentProgressPage() {
   const [progress, setProgress] =
     useState<ProgressData | null>(
@@ -60,7 +77,10 @@ export default function StudentProgressPage() {
           text
         );
 
-        let data: any = {};
+        let data: Partial<ProgressData> & {
+          message?: string;
+          error?: string;
+        } = {};
 
         try {
           data = text
@@ -80,6 +100,9 @@ export default function StudentProgressPage() {
           );
         }
 
+        if (!isProgressData(data)) {
+          throw new Error("Progress response is invalid.");
+        }
         setProgress(data);
       } catch (error) {
         console.error(

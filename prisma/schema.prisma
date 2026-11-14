@@ -2,25 +2,31 @@ generator client {
   provider = "prisma-client-js"
 }
 
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "../docs/ERD.svg"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id           String        @id @default(uuid())
-  name         String
-  email        String        @unique
-  password     String
-  role         Role
-  avatar       String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  classes      Class[]
-  classMembers ClassMember[]
-  exercises    Exercise[]
-  assignments  Assignment[]
-  submissions  Submission[]
+  id               String            @id @default(uuid())
+  name             String
+  email            String            @unique
+  password         String
+  role             Role
+  avatar           String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  classes          Class[]
+  classMembers     ClassMember[]
+  exercises        Exercise[]
+  assignments      Assignment[]
+  submissions      Submission[]
+  practiceSessions PracticeSession[]
 }
 
 model Class {
@@ -47,62 +53,41 @@ model ClassMember {
   @@unique([classId, studentId])
 }
 
-model Grade {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  lessons     Lesson[]
-  topics      Topic[]
-}
-
-model Topic {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  gradeId     String
-  lessons     Lesson[]
-  grade       Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-}
-
-model Lesson {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  gradeId     String
-  topicId     String
-  content     String?
-  createdAt   DateTime @default(now())
-  grade       Grade    @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-  topic       Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
-}
-
 model Exercise {
   id          String         @id @default(uuid())
   title       String
   description String?
+  content     String?        @db.Text
   skill       Skill
   difficulty  Difficulty
   source      ExerciseSource @default(MANUAL)
   createdAt   DateTime       @default(now())
   teacherId   String
   updatedAt   DateTime       @updatedAt
-  teacher     User           @relation(fields: [teacherId], references: [id])
+
+  teacher     User         @relation(fields: [teacherId], references: [id])
   questions   Question[]
   assignments Assignment[]
+
+  lessonId   String?
+  lesson     Lesson? @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  audioUrl   String?
+  transcript String? @db.Text
 }
 
 model Question {
-  id            String           @id @default(uuid())
-  exerciseId    String
-  type          QuestionType
-  content       String
-  correctAnswer String?
-  explanation   String?
-  order         Int
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  exercise      Exercise         @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  options       QuestionOption[]
+  id              String           @id @default(uuid())
+  exerciseId      String
+  type            QuestionType
+  content         String
+  correctAnswer   String?
+  explanation     String?
+  order           Int
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  exercise        Exercise         @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  options         QuestionOption[]
+  speakingRecords SpeakingRecord[]
 }
 
 model QuestionOption {
@@ -149,9 +134,10 @@ model Submission {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
-  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  answers    Answer[]
+  assignment      Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student         User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers         Answer[]
+  speakingRecords SpeakingRecord[]
 
   @@unique([assignmentId, studentId])
   @@index([assignmentId])
@@ -159,37 +145,18 @@ model Submission {
 }
 
 model Answer {
-  id           String     @id @default(uuid())
+  id           String   @id @default(uuid())
   submissionId String
   questionId   String
   answer       String?
   isCorrect    Boolean?
   score        Float?
   feedback     String?
-  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-}
 
-model LearningProgress {
-  id                 String   @id @default(uuid())
-  studentId          String
-  skill              Skill
-  averageScore       Float    @default(0)
-  completedExercises Int      @default(0)
-  updatedAt          DateTime @updatedAt
-}
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
-model AIGeneration {
-  id           String     @id @default(uuid())
-  userId       String
-  gradeId      String
-  topicId      String?
-  skill        Skill
-  questionType String
-  difficulty   Difficulty
-  quantity     Int
-  prompt       String
-  result       Json
-  createdAt    DateTime   @default(now())
+  @@unique([submissionId, questionId])
+  @@index([questionId])
 }
 
 enum Role {
@@ -225,4 +192,172 @@ enum QuestionType {
   LISTENING
   SPEAKING
   WRITING
+}
+
+model Textbook {
+  id        String         @id @default(uuid())
+  name      String
+  publisher String?
+  createdAt DateTime       @default(now())
+  files     TextbookFile[]
+
+  units Unit[]
+
+  @@unique([name])
+}
+
+model Unit {
+  id             String          @id @default(uuid())
+  textbookId     String
+  grade          Int
+  number         Int
+  title          String
+  description    String?
+  documentChunks DocumentChunk[]
+
+  textbook Textbook @relation(fields: [textbookId], references: [id], onDelete: Cascade)
+  lessons  Lesson[]
+
+  @@unique([textbookId, grade, number])
+  @@index([grade])
+}
+
+model Lesson {
+  id             String          @id @default(uuid())
+  unitId         String?
+  number         Int?
+  title          String
+  objectives     String?
+  sourceNote     String?
+  documentChunks DocumentChunk[]
+
+  unit       Unit?          @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  vocabulary Vocabulary[]
+  grammar    GrammarPoint[]
+  exercises  Exercise[]
+
+  @@unique([unitId, number])
+  @@index([unitId])
+}
+
+model Vocabulary {
+  id       String  @id @default(uuid())
+  lessonId String
+  word     String
+  meaning  String?
+  example  String?
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, word])
+}
+
+model GrammarPoint {
+  id          String  @id @default(uuid())
+  lessonId    String
+  structure   String
+  explanation String?
+  example     String?
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+enum DocumentProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model TextbookFile {
+  id           String                   @id @default(uuid())
+  textbookId   String
+  grade        Int
+  displayName  String
+  originalName String
+  storageKey   String                   @unique
+  mimeType     String                   @default("application/pdf")
+  sizeBytes    Int
+  status       DocumentProcessingStatus @default(PENDING)
+  errorMessage String?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  textbook Textbook @relation(fields: [textbookId], references: [id], onDelete: Cascade)
+
+  chunks DocumentChunk[]
+
+  @@index([textbookId, grade])
+  @@index([status])
+}
+
+model DocumentChunk {
+  id             String   @id @default(uuid())
+  textbookFileId String
+  unitId         String?
+  lessonId       String?
+  pageNumber     Int
+  content        String   @db.Text
+  createdAt      DateTime @default(now())
+
+  textbookFile TextbookFile @relation(fields: [textbookFileId], references: [id], onDelete: Cascade)
+
+  unit Unit? @relation(fields: [unitId], references: [id], onDelete: SetNull)
+
+  lesson Lesson? @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  @@index([textbookFileId, pageNumber])
+  @@index([unitId])
+  @@index([lessonId])
+}
+
+model SpeakingRecord {
+  id           String @id @default(uuid())
+  submissionId String
+  questionId   String
+
+  audioData Bytes
+  mimeType  String
+
+  transcript String? @db.Text
+
+  pronunciationScore        Float?
+  fluencyScore              Float?
+  grammarScore              Float?
+  vocabularyScore           Float?
+  teacherPronunciationScore Float?
+  teacherFluencyScore       Float?
+  teacherGrammarScore       Float?
+  teacherVocabularyScore    Float?
+  teacherFeedback           String?   @db.Text
+  teacherGradedAt           DateTime?
+  teacherGradedById         String?
+
+  feedback  String?  @db.Text
+  createdAt DateTime @default(now())
+
+  submission Submission @relation(fields: [submissionId], references: [id])
+  question   Question   @relation(fields: [questionId], references: [id])
+
+  @@unique([submissionId, questionId])
+}
+
+model PracticeSession {
+  id          String     @id @default(uuid())
+  studentId   String
+  grade       Int
+  skill       Skill
+  difficulty  Difficulty
+  topic       String
+  exercise    Json
+  answers     Json?
+  score       Float?
+  submittedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([studentId, createdAt])
 }

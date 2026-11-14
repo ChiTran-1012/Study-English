@@ -46,7 +46,7 @@ export default function CreateQuestionPage() {
 console.log("CREATE OPTION STATUS:", response.status);
 console.log("CREATE OPTION RESPONSE:", text);
 
-let data: any = {};
+let data: { message?: string; error?: string } = {};
 
 try {
   data = text ? JSON.parse(text) : {};

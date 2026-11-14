@@ -1,23 +1,50 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Role } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-
-        const { name, email, password, role} = body;
-
-        if (!name || !email || !password || !role) {
+        const body: unknown = await request.json();
+        if (!body || typeof body !== "object" || Array.isArray(body)) {
             return NextResponse.json(
-                {
-                    message: 'Vui long nhap day du thong tin'
-                },
-                {
-                    status: 400,
-                }
+                { message: "Dữ liệu đăng ký không hợp lệ." },
+                { status: 400 }
+            );
+        }
+
+        const input = body as Record<string, unknown>;
+        const name = typeof input.name === "string" ? input.name.trim() : "";
+        const email = typeof input.email === "string" ? input.email.trim().toLowerCase() : "";
+        const password = typeof input.password === "string" ? input.password : "";
+        const role = input.role;
+
+        if (!name || !email || !password || typeof role !== "string") {
+            return NextResponse.json(
+                { message: "Vui lòng nhập đầy đủ thông tin." },
+                { status: 400 }
+            );
+        }
+
+        if (!email.includes("@") || email.length > 254 || name.length > 100) {
+            return NextResponse.json(
+                { message: "Tên hoặc email không hợp lệ." },
+                { status: 400 }
+            );
+        }
+
+        if (password.length < 8 || password.length > 128) {
+            return NextResponse.json(
+                { message: "Mật khẩu phải có từ 8 đến 128 ký tự." },
+                { status: 400 }
+            );
+        }
+
+        if (role !== Role.STUDENT && role !== Role.TEACHER) {
+            return NextResponse.json(
+                { message: "Không thể đăng ký vai trò quản trị viên." },
+                { status: 403 }
             );
         }
 
@@ -45,7 +72,7 @@ export async function POST(request: Request) {
                 name,
                 email,
                 password: hashedPassword,
-                role,
+                role: role as Role,
             },
         });
 

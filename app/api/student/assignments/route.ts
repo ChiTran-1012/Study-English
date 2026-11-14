@@ -7,73 +7,30 @@ const secret = new TextEncoder().encode(
 );
 
 export async function GET(request: NextRequest) {
+  const token = request.cookies.get("token")?.value;
+  if (!token) {
+    return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
+  }
+
+  let studentId: string;
   try {
-    // =========================
-    // Kiểm tra đăng nhập
-    // =========================
-
-    const token = request.cookies.get("token")?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        {
-          message: "Chưa đăng nhập",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
-
-    // =========================
-    // Kiểm tra JWT
-    // =========================
-
     const { payload } = await jwtVerify(token, secret);
-
     if (payload.role !== "STUDENT") {
-      return NextResponse.json(
-        {
-          message: "Chỉ học sinh mới được truy cập",
-        },
-        {
-          status: 403,
-        }
-      );
+      return NextResponse.json({ error: "Không có quyền truy cập" }, { status: 403 });
     }
-
-    const studentId = payload.id as string;
-
-    // =========================
-    // Lấy các lớp học sinh tham gia
-    // =========================
-
-    const classMembers = await prisma.classMember.findMany({
-      where: {
-        studentId,
-      },
-      select: {
-        classId: true,
-      },
-    });
-
-    const classIds = classMembers.map(
-      (member) => member.classId
-    );
-
-    // Nếu học sinh chưa tham gia lớp nào
-    if (classIds.length === 0) {
-      return NextResponse.json([]);
+    if (typeof payload.id !== "string" || !payload.id) {
+      return NextResponse.json({ error: "Không xác định được học sinh" }, { status: 401 });
     }
+    studentId = payload.id;
+  } catch {
+    return NextResponse.json({ error: "Phiên đăng nhập không hợp lệ" }, { status: 401 });
+  }
 
-    // =========================
-    // Lấy Assignment
-    // =========================
-
+  try {
     const assignments = await prisma.assignment.findMany({
       where: {
-        classId: {
-          in: classIds,
+        class: {
+          members: { some: { studentId } },
         },
       },
       include: {
@@ -84,82 +41,35 @@ export async function GET(request: NextRequest) {
             description: true,
             skill: true,
             difficulty: true,
+            source: true,
+            _count: { select: { questions: true } },
           },
         },
-
         class: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            grade: true,
-          },
+          select: { id: true, name: true, code: true, grade: true },
         },
-
         teacher: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
-
         submissions: {
-          where: {
-            studentId,
-          },
-          select: {
-            id: true,
-            score: true,
-            submittedAt: true,
-          },
+          where: { studentId },
+          select: { id: true, score: true, submittedAt: true },
         },
       },
-
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-    const now = new Date();
-
-    const result = assignments.map((assignment) => {
-      const submission = assignment.submissions[0] ?? null;
-
-      let status: "NOT_STARTED" | "SUBMITTED" | "EXPIRED";
-
-      if (submission?.submittedAt) {
-        status = "SUBMITTED";
-      } else if (assignment.dueAt && assignment.dueAt < now) {
-        status = "EXPIRED";
-      } else {
-        status = "NOT_STARTED";
-      }
-
-      return {
-        ...assignment,
-        submission,
-        status,
-      };
+      orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(result);
-    
+    return NextResponse.json(assignments);
   } catch (error) {
-    console.error(
-      "GET STUDENT ASSIGNMENTS ERROR:",
-      error
-    );
-
+    console.error("GET STUDENT ASSIGNMENTS ERROR:", error);
     return NextResponse.json(
       {
-        message: "Lỗi server",
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown error",
+        error: "Không thể tải danh sách bài tập",
+        ...(process.env.NODE_ENV === "development" && error instanceof Error
+          ? { detail: error.message }
+          : {}),
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }

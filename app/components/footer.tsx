@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faFacebook,
@@ -47,10 +48,12 @@ export default function Footer() {
             <div>
                 <p className="text-xl font-bold mb-4">Download Now</p>
 
-                <img
+                <Image
                     src="https://play-lh.googleusercontent.com/B7kOAQJvh_3KeTRelpV-NDyiOElDx7Rl7atsszpAe4VQmIzeY0IKScOeiVwasoQKQK8ylnqCRh8LZF0Jpzwu"
                     className="w-44 rounded-2xl"
                     alt="Download app"
+                    width={352}
+                    height={100}
                 />
             </div>
 

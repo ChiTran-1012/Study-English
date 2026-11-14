@@ -7,56 +7,60 @@ const secret = new TextEncoder().encode(
 );
 
 type Context = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
 
-export async function GET(
-  request: NextRequest,
-  context: Context
-) {
+export async function GET(request: NextRequest, context: Context) {
   try {
     const token = request.cookies.get("token")?.value;
-
     if (!token) {
+      return NextResponse.json({ message: "Chưa đăng nhập" }, { status: 401 });
+    }
+
+    let studentId: string;
+    try {
+      const { payload } = await jwtVerify(token, secret);
+      if (payload.role !== "STUDENT") {
+        return NextResponse.json(
+          { message: "Chỉ học sinh mới được truy cập" },
+          { status: 403 }
+        );
+      }
+      if (typeof payload.id !== "string" || !payload.id) {
+        return NextResponse.json({ message: "Token không hợp lệ" }, { status: 401 });
+      }
+      studentId = payload.id;
+    } catch {
       return NextResponse.json(
-        { message: "Chưa đăng nhập" },
+        { message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn" },
         { status: 401 }
       );
     }
 
-    const { payload } = await jwtVerify(token, secret);
-
-    if (payload.role !== "STUDENT") {
-      return NextResponse.json(
-        { message: "Chỉ học sinh mới được truy cập" },
-        { status: 403 }
-      );
-    }
-
-    const studentId = payload.id as string;
     const { id } = await context.params;
 
-    // Kiểm tra Student có thuộc Class của Assignment không
     const assignment = await prisma.assignment.findFirst({
       where: {
         id,
-
-        class: {
-          members: {
-            some: {
-              studentId,
-            },
-          },
-        },
+        class: { members: { some: { studentId } } },
       },
-
       include: {
         exercise: {
-          include: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            content: true,
+            audioUrl: true,
+            skill: true,
+            difficulty: true,
             questions: {
-              include: {
+              orderBy: { order: "asc" },
+              select: {
+                id: true,
+                content: true,
+                type: true,
+                order: true,
                 options: {
                   select: {
                     id: true,
@@ -65,66 +69,40 @@ export async function GET(
                   },
                 },
               },
-              orderBy: {
-                order: "asc",
-              },
             },
           },
         },
-
         submissions: {
-          where: {
-            studentId,
-          },
-          select: {
-            id: true,
-            score: true,
-            submittedAt: true,
-          },
+          where: { studentId },
+          select: { id: true, score: true, submittedAt: true },
         },
-
         class: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            grade: true,
-          },
+          select: { id: true, name: true, code: true, grade: true },
         },
-
         teacher: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
       },
     });
 
     if (!assignment) {
       return NextResponse.json(
-        {
-          message:
-            "Không tìm thấy bài tập hoặc bạn không thuộc lớp này",
-        },
+        { message: "Không tìm thấy bài tập hoặc bạn không thuộc lớp này" },
         { status: 404 }
       );
     }
 
+    // Không trả transcript, correctAnswer, explanation hoặc isCorrect.
+    // API review riêng chỉ trả đáp án sau khi học sinh đã nộp bài.
     return NextResponse.json(assignment);
   } catch (error) {
-    console.error(
-      "GET STUDENT ASSIGNMENT DETAIL ERROR:",
-      error
-    );
-
+    console.error("GET STUDENT ASSIGNMENT DETAIL ERROR:", error);
     return NextResponse.json(
       {
         message: "Lỗi server",
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unknown error",
+        ...(process.env.NODE_ENV === "development" && error instanceof Error
+          ? { error: error.message }
+          : {}),
       },
       { status: 500 }
     );

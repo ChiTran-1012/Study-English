@@ -1,15 +1,35 @@
-import Student from "../components/student-sidebar";
 
-export default function TeacherLayout({
+"use client";
+
+import { useState } from "react";
+import StudentSidebar from "../components/student-sidebar";
+
+export default function StudentLayoutClient({
     children,
-}: Readonly<{
+}: {
     children: React.ReactNode;
-}>) {
+}) {
+    const [open, setOpen] = useState(true);
+
     return (
-        <div className="flex min-h-screen bg-gray-50">
-            <Student/>
-            <main className="flex-1">{children}</main>
+        <div className="min-h-screen bg-gray-50">
+            <StudentSidebar
+                open={open}
+                setOpen={setOpen}
+            />
+
+            <main
+                className={`
+                    min-h-screen
+                    transition-all
+                    duration-300
+                    ${open ? "ml-64" : "ml-20"}
+                `}
+            >
+                <div className="p-6">
+                    {children}
+                </div>
+            </main>
         </div>
-    )
-    
+    );
 }

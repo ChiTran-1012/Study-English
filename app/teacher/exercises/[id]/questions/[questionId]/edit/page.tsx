@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   useParams,
   useRouter,
@@ -44,11 +44,7 @@ export default function EditQuestionPage() {
   // LOAD QUESTION
   // ==================================================
 
-  useEffect(() => {
-    loadQuestion();
-  }, []);
-
-  async function loadQuestion() {
+  const loadQuestion = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -114,7 +110,11 @@ export default function EditQuestionPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [questionId]);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadQuestion());
+  }, [loadQuestion]);
 
   // ==================================================
   // VALIDATION FRONTEND

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
 type Exercise = {
@@ -21,14 +21,10 @@ export default function TeacherExercisesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    loadExercises();
-  }, []);
-
   // =========================
   // LOAD EXERCISES
   // =========================
-  const loadExercises = async () => {
+  const loadExercises = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -78,7 +74,11 @@ export default function TeacherExercisesPage() {
       // Luôn tắt loading dù thành công hay lỗi
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadExercises());
+  }, [loadExercises]);
 
   // =========================
   // DELETE EXERCISE

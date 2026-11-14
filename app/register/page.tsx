@@ -9,7 +9,7 @@ export default function RegisterPage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [role, setRole] = useState("STUDENT");
+    const [role, setRole] = useState<"STUDENT" | "TEACHER">("STUDENT");
 
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -66,6 +66,11 @@ export default function RegisterPage() {
                 </p>
 
                 <form onSubmit={handleRegister} className="space-y-4">
+                    {error && (
+                        <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                            {error}
+                        </p>
+                    )}
                     <div>
                         <label className="block mb-2 font-medium">
                             Họ và tên
@@ -118,7 +123,7 @@ export default function RegisterPage() {
 
                         <select
                             value={role}
-                            onChange={(e) => setRole(e.target.value)}
+                            onChange={(e) => setRole(e.target.value === "TEACHER" ? "TEACHER" : "STUDENT")}
                             className="w-full border border-gray-300 rounded-lg px-4 py-3"
                         >
                             <option value="STUDENT">Học sinh</option>

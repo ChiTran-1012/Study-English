@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   useParams,
   useRouter,
 } from "next/navigation";
+
+type Option = {
+  id: string;
+  label: string;
+  content: string;
+  isCorrect: boolean;
+};
 
 export default function EditOptionPage() {
   const params = useParams();
@@ -41,11 +48,7 @@ export default function EditOptionPage() {
   // LOAD OPTION
   // ==================================================
 
-  useEffect(() => {
-    loadOption();
-  }, []);
-
-  async function loadOption() {
+  const loadOption = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -74,15 +77,18 @@ export default function EditOptionPage() {
         );
       }
 
-      const options =
+      const options: Option[] =
         text
           ? JSON.parse(text)
           : [];
 
+      if (!Array.isArray(options)) {
+        throw new Error("Danh sÃ¡ch Ä‘Ã¡p Ã¡n khÃ´ng há»£p lá»‡");
+      }
+
       const option =
         options.find(
-          (item: any) =>
-            item.id === optionId
+          (item) => item.id === optionId
         );
 
       if (!option) {
@@ -116,7 +122,11 @@ export default function EditOptionPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [optionId, questionId]);
+
+  useEffect(() => {
+    queueMicrotask(() => void loadOption());
+  }, [loadOption]);
 
   // ==================================================
   // VALIDATION FRONTEND

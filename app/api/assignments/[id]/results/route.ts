@@ -1,6 +1,9 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { prisma } from "@/app/lib/prisma";
+
+export const runtime = "nodejs";
 
 const secret = new TextEncoder().encode(
   process.env.JWT_SECRET || "dev-secret-key"
@@ -21,9 +24,9 @@ export async function GET(
   context: Context
 ) {
   try {
-    // --------------------------------------------------
-    // 1. Kiểm tra token
-    // --------------------------------------------------
+    // ==================================================
+    // 1. Kiểm tra đăng nhập
+    // ==================================================
 
     const token = request.cookies.get("token")?.value;
 
@@ -34,93 +37,134 @@ export async function GET(
       );
     }
 
-    // --------------------------------------------------
-    // 2. Verify JWT
-    // --------------------------------------------------
+    // ==================================================
+    // 2. Xác thực JWT và quyền Teacher
+    // ==================================================
 
-    const { payload } = await jwtVerify(token, secret);
+    let teacherId: string;
 
-    const role = payload.role as string;
-    const teacherId = payload.id as string;
+    try {
+      const { payload } = await jwtVerify(
+        token,
+        secret
+      );
 
-    if (role !== "TEACHER") {
+      if (
+        payload.role !== "TEACHER" ||
+        typeof payload.id !== "string" ||
+        !payload.id
+      ) {
+        return NextResponse.json(
+          { error: "Không có quyền truy cập" },
+          { status: 403 }
+        );
+      }
+
+      teacherId = payload.id;
+    } catch {
       return NextResponse.json(
-        { error: "Không có quyền truy cập" },
-        { status: 403 }
+        {
+          error:
+            "Phiên đăng nhập không hợp lệ hoặc đã hết hạn",
+        },
+        { status: 401 }
       );
     }
 
-    // --------------------------------------------------
+    // ==================================================
     // 3. Lấy assignment ID
-    // --------------------------------------------------
+    // ==================================================
 
-    const { id } = await context.params;
+    const { id: assignmentId } =
+      await context.params;
 
-    if (!id) {
+    if (!assignmentId) {
       return NextResponse.json(
         { error: "Thiếu assignment ID" },
         { status: 400 }
       );
     }
 
-    // --------------------------------------------------
-    // 4. Kiểm tra Assignment thuộc giáo viên
-    // --------------------------------------------------
+    // ==================================================
+    // 4. Kiểm tra Assignment thuộc Teacher
+    // ==================================================
 
-    const assignment = await prisma.assignment.findFirst({
-      where: {
-        id,
-        teacherId,
-      },
-
-      include: {
-        exercise: {
-          select: {
-            id: true,
-            title: true,
-            skill: true,
-            difficulty: true,
-          },
+    const assignment =
+      await prisma.assignment.findFirst({
+        where: {
+          id: assignmentId,
+          teacherId,
         },
 
-        class: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            grade: true,
+        include: {
+          exercise: {
+            select: {
+              id: true,
+              title: true,
+              skill: true,
+              difficulty: true,
 
-            members: {
-              select: {
-                student: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
+              questions: {
+                select: {
+                  id: true,
+                  type: true,
+                },
+              },
+            },
+          },
+
+          class: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              grade: true,
+
+              members: {
+                select: {
+                  student: {
+                    select: {
+                      id: true,
+                      name: true,
+                      email: true,
+                    },
                   },
                 },
               },
             },
           },
-        },
 
-        submissions: {
-          include: {
-            student: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
+          submissions: {
+            select: {
+              id: true,
+              studentId: true,
+              score: true,
+              submittedAt: true,
+              createdAt: true,
+
+              answers: {
+                select: {
+                  questionId: true,
+                  isCorrect: true,
+                  score: true,
+                },
+              },
+
+              speakingRecords: {
+                select: {
+                  id: true,
+                  questionId: true,
+                  transcript: true,
+                  grammarScore: true,
+                  vocabularyScore: true,
+                  pronunciationScore: true,
+                  fluencyScore: true,
+                },
               },
             },
           },
-
-          orderBy: {
-            submittedAt: "desc",
-          },
         },
-      },
-    });
+      });
 
     if (!assignment) {
       return NextResponse.json(
@@ -129,45 +173,180 @@ export async function GET(
       );
     }
 
-    // --------------------------------------------------
-    // 5. Tạo danh sách kết quả
-    // --------------------------------------------------
+    // ==================================================
+    // 5. Thông tin bài tập
+    // ==================================================
+
+    const skill = assignment.exercise.skill;
+
+    const isSpeaking = skill === "SPEAKING";
+
+    const totalQuestions =
+      assignment.exercise.questions.length;
+
+    // ==================================================
+    // 6. Tạo Map Submission theo Student
+    // ==================================================
 
     const submissionMap = new Map(
-      assignment.submissions.map((submission) => [
-        submission.studentId,
-        submission,
-      ])
+      assignment.submissions.map(
+        (submission) => [
+          submission.studentId,
+          submission,
+        ]
+      )
     );
 
-    const results = assignment.class.members.map((member) => {
-      const submission = submissionMap.get(member.student.id);
+    // ==================================================
+    // 7. Danh sách kết quả tất cả học sinh
+    // ==================================================
 
-      return {
-        student: member.student,
+    const results =
+      assignment.class.members.map((member) => {
+        const student = member.student;
 
-        status: submission
-          ? "SUBMITTED"
-          : "NOT_SUBMITTED",
+        const submission =
+          submissionMap.get(student.id);
 
-        score: submission?.score ?? null,
+        // Quan trọng:
+        // Có Submission chưa đồng nghĩa đã nộp.
+        const hasSubmitted =
+          submission?.submittedAt != null;
 
-        submittedAt: submission?.submittedAt ?? null,
+        // Chỉ hiển thị điểm khi đã nộp.
+        const score = hasSubmitted
+          ? (submission?.score ?? null)
+          : null;
 
-        submissionId: submission?.id ?? null,
-      };
-    });
+        // Bài chưa nộp không có submissionId
+        // để tránh mở chi tiết bản nháp.
+        const submissionId =
+          hasSubmitted && submission
+            ? submission.id
+            : null;
 
-    // --------------------------------------------------
-    // 6. Thống kê
-    // --------------------------------------------------
+        const correctCount =
+          hasSubmitted && !isSpeaking && submission
+            ? submission.answers.filter(
+                (answer) =>
+                  answer.isCorrect === true
+              ).length
+            : null;
+
+        const gradedQuestions =
+          hasSubmitted && submission
+            ? submission.answers.filter(
+                (answer) =>
+                  answer.score !== null
+              ).length
+            : 0;
+
+        const speakingRecordCount =
+          hasSubmitted && submission && isSpeaking
+            ? submission.speakingRecords.length
+            : 0;
+
+        const transcriptCount =
+          hasSubmitted && submission && isSpeaking
+            ? submission.speakingRecords.filter(
+                (record) =>
+                  Boolean(
+                    record.transcript?.trim()
+                  )
+              ).length
+            : 0;
+
+        const pronunciationGradedCount =
+          hasSubmitted && submission && isSpeaking
+            ? submission.speakingRecords.filter(
+                (record) =>
+                  record.pronunciationScore !== null &&
+                  record.fluencyScore !== null
+              ).length
+            : 0;
+
+        let gradingStatus:
+          | "NOT_SUBMITTED"
+          | "PENDING"
+          | "COMPLETED";
+
+        if (!hasSubmitted) {
+          gradingStatus = "NOT_SUBMITTED";
+        } else if (score === null) {
+          gradingStatus = "PENDING";
+        } else {
+          gradingStatus = "COMPLETED";
+        }
+
+        return {
+          student,
+
+          // Giữ nguyên cấu trúc trang Results.
+          status: hasSubmitted
+            ? ("SUBMITTED" as const)
+            : ("NOT_SUBMITTED" as const),
+
+          score,
+
+          submittedAt: hasSubmitted
+            ? submission!.submittedAt
+            : null,
+
+          submissionId,
+
+          // Các trường bổ sung
+          gradingStatus,
+
+          correctCount,
+          gradedQuestions,
+          totalQuestions,
+
+          speaking: isSpeaking
+            ? {
+                recordCount:
+                  speakingRecordCount,
+
+                transcriptCount,
+
+                pronunciationGradedCount,
+
+                contentGraded:
+                  hasSubmitted &&
+                  score !== null,
+              }
+            : null,
+        };
+      });
+
+    // ==================================================
+    // 8. Thống kê lớp
+    // ==================================================
 
     const submittedResults = results.filter(
-      (item) => item.status === "SUBMITTED"
+      (result) =>
+        result.status === "SUBMITTED"
     );
 
-    const scores = submittedResults
-      .map((item) => item.score)
+    const notSubmittedResults = results.filter(
+      (result) =>
+        result.status === "NOT_SUBMITTED"
+    );
+
+    const gradedResults =
+      submittedResults.filter(
+        (result) =>
+          result.score !== null
+      );
+
+    const pendingResults =
+      submittedResults.filter(
+        (result) =>
+          result.score === null
+      );
+
+    // Chỉ lấy điểm của bài đã chấm.
+    const scores = gradedResults
+      .map((result) => result.score)
       .filter(
         (score): score is number =>
           score !== null
@@ -175,30 +354,43 @@ export async function GET(
 
     const averageScore =
       scores.length > 0
-        ? scores.reduce((sum, score) => sum + score, 0) /
-          scores.length
-        : 0;
+        ? Number(
+            (
+              scores.reduce(
+                (sum, score) => sum + score,
+                0
+              ) / scores.length
+            ).toFixed(2)
+          )
+        : null;
 
-    // --------------------------------------------------
-    // 7. Response
-    // --------------------------------------------------
+    // ==================================================
+    // 9. Response
+    // ==================================================
 
     return NextResponse.json({
       assignment: {
         id: assignment.id,
+
         title: assignment.title,
-        description: assignment.description,
 
-        exercise: assignment.exercise,
+        description:
+          assignment.description,
 
-        class: assignment.class
-          ? {
-              id: assignment.class.id,
-              name: assignment.class.name,
-              code: assignment.class.code,
-              grade: assignment.class.grade,
-            }
-          : null,
+        exercise: {
+          id: assignment.exercise.id,
+          title: assignment.exercise.title,
+          skill: assignment.exercise.skill,
+          difficulty:
+            assignment.exercise.difficulty,
+        },
+
+        class: {
+          id: assignment.class.id,
+          name: assignment.class.name,
+          code: assignment.class.code,
+          grade: assignment.class.grade,
+        },
 
         startAt: assignment.startAt,
         dueAt: assignment.dueAt,
@@ -206,13 +398,21 @@ export async function GET(
 
       statistics: {
         totalStudents: results.length,
-        submittedStudents: submittedResults.length,
-        notSubmittedStudents:
-          results.length - submittedResults.length,
 
-        averageScore: Number(
-          averageScore.toFixed(2)
-        ),
+        submittedStudents:
+          submittedResults.length,
+
+        notSubmittedStudents:
+          notSubmittedResults.length,
+
+        gradedStudents:
+          gradedResults.length,
+
+        pendingGradingStudents:
+          pendingResults.length,
+
+        // null nếu chưa có bài nào được chấm.
+        averageScore,
       },
 
       results,
@@ -225,7 +425,8 @@ export async function GET(
 
     return NextResponse.json(
       {
-        error: "Lỗi server",
+        error:
+          "Lỗi server khi lấy kết quả học sinh",
       },
       {
         status: 500,

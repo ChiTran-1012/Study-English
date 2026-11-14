@@ -1,6 +1,11 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { prisma } from "@/app/lib/prisma";
+
+type Context = {
+  params: Promise<{ id: string }>;
+};
 
 const secret = new TextEncoder().encode(
   process.env.JWT_SECRET || "dev-secret-key"
@@ -8,12 +13,9 @@ const secret = new TextEncoder().encode(
 
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: Context
 ) {
   try {
-    // =========================
-    // 1. Kiểm tra đăng nhập
-    // =========================
     const token = request.cookies.get("token")?.value;
 
     if (!token) {
@@ -25,74 +27,63 @@ export async function GET(
 
     const { payload } = await jwtVerify(token, secret);
 
-    const teacherId = payload.id as string;
-    const role = payload.role as string;
-
-    if (!teacherId) {
+    if (
+      payload.role !== "TEACHER" ||
+      typeof payload.id !== "string"
+    ) {
       return NextResponse.json(
-        { message: "Token không hợp lệ" },
-        { status: 401 }
-      );
-    }
-
-    if (role !== "TEACHER") {
-      return NextResponse.json(
-        { message: "Chỉ giáo viên mới được xem kết quả" },
+        { message: "Không có quyền truy cập" },
         { status: 403 }
       );
     }
 
-    // =========================
-    // 2. Lấy assignment ID
-    // =========================
-    const { id: assignmentId } = await context.params;
+    const { id } = await context.params;
 
-    // =========================
-    // 3. Kiểm tra assignment
-    // =========================
     const assignment = await prisma.assignment.findFirst({
       where: {
-        id: assignmentId,
-        teacherId,
+        id,
+        teacherId: payload.id,
+        class: { teacherId: payload.id },
+        exercise: { skill: "SPEAKING" },
       },
-      include: {
-        exercise: {
-          select: {
-            id: true,
-            title: true,
-            questions: {
-              select: {
-                id: true,
-              },
-            },
-          },
-        },
+      select: {
+        id: true,
+        title: true,
         class: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            grade: true,
-          },
+          select: { name: true },
+        },
+        exercise: {
+          select: { title: true },
         },
       },
     });
 
     if (!assignment) {
       return NextResponse.json(
-        { message: "Không tìm thấy bài tập" },
+        { message: "Không tìm thấy bài Speaking" },
         { status: 404 }
       );
     }
 
-    // =========================
-    // 4. Lấy submissions
-    // =========================
     const submissions = await prisma.submission.findMany({
       where: {
-        assignmentId,
+        assignmentId: id,
+        submittedAt: { not: null },
+        student: {
+          classMembers: {
+            some: { classId: (
+              await prisma.assignment.findUniqueOrThrow({
+                where: { id },
+                select: { classId: true },
+              })
+            ).classId },
+          },
+        },
       },
-      include: {
+      select: {
+        id: true,
+        score: true,
+        submittedAt: true,
         student: {
           select: {
             id: true,
@@ -100,52 +91,66 @@ export async function GET(
             email: true,
           },
         },
+        speakingRecords: {
+          select: {
+            id: true,
+            grammarScore: true,
+            vocabularyScore: true,
+            teacherPronunciationScore: true,
+            teacherFluencyScore: true,
+            teacherGradedAt: true,
+          },
+        },
       },
-      orderBy: {
-        submittedAt: "desc",
-      },
-    });
-
-    // =========================
-    // 5. Format dữ liệu
-    // =========================
-    const totalQuestions = assignment.exercise.questions.length;
-
-    const results = submissions.map((submission) => {
-      const score = submission.score ?? 0;
-
-      const correctCount =
-        totalQuestions > 0
-          ? Math.round((score / 10) * totalQuestions)
-          : 0;
-
-      return {
-        id: submission.id,
-        student: submission.student,
-        score,
-        correctCount,
-        totalQuestions,
-        submittedAt: submission.submittedAt,
-      };
+      orderBy: { submittedAt: "desc" },
     });
 
     return NextResponse.json({
       assignment: {
         id: assignment.id,
-        title: assignment.title,
-        exercise: assignment.exercise,
-        class: assignment.class,
+        title: assignment.title || assignment.exercise.title,
+        className: assignment.class.name,
       },
-      results,
+      submissions: submissions.map((item) => {
+        const records = item.speakingRecords;
+
+        const aiReady =
+          records.length > 0 &&
+          records.every(
+            (record) =>
+              record.grammarScore != null &&
+              record.vocabularyScore != null
+          );
+
+        const teacherReady =
+          records.length > 0 &&
+          records.every(
+            (record) =>
+              record.teacherPronunciationScore != null &&
+              record.teacherFluencyScore != null &&
+              record.teacherGradedAt != null
+          );
+
+        return {
+          id: item.id,
+          student: item.student,
+          submittedAt: item.submittedAt,
+          score: item.score,
+          aiReady,
+          teacherReady,
+          status: teacherReady && aiReady
+            ? "COMPLETED"
+            : !aiReady
+              ? "WAITING_AI"
+              : "WAITING_TEACHER",
+        };
+      }),
     });
   } catch (error) {
-    console.error(
-      "GET /api/teacher/assignments/[id]/submissions error:",
-      error
-    );
+    console.error("TEACHER SUBMISSIONS:", error);
 
     return NextResponse.json(
-      { message: "Lỗi server" },
+      { message: "Không thể tải danh sách bài nộp" },
       { status: 500 }
     );
   }

@@ -8,7 +8,7 @@ export default function LoginPage() {
     const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [error,setError] = useState("");
+    const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -37,12 +37,14 @@ export default function LoginPage() {
             }
 
             //Chuyen trang theo role
-            if(data.user.role === "TEACHER"){
+            if (data.user.role === "TEACHER") {
                 router.push("/teacher");
             } else if (data.user.role === "STUDENT") {
                 router.push("/student");
             } else if (data.user.role === "ADMIN") {
                 router.push("/admin");
+            } else {
+                setError("Vai trò tài khoản không hợp lệ");
             }
         } catch (error) {
             console.error(error);
@@ -99,7 +101,7 @@ export default function LoginPage() {
                         disabled={loading}
                         className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700"
                     >
-                       {loading ? "Dang dang nhap..." : "Đăng nhập"} 
+                        {loading ? "Dang dang nhap..." : "Đăng nhập"}
                     </button>
                 </form>
 

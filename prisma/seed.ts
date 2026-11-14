@@ -21,21 +21,6 @@ async function main() {
     },
   });
 
-  const englishGrade = await prisma.grade.create({
-    data: {
-      name: "Grade 6",
-      description: "English curriculum for grade 6",
-    },
-  });
-
-  const topic = await prisma.topic.create({
-    data: {
-      name: "Daily Activities",
-      description: "Vocabulary and communication about daily activities",
-      gradeId: englishGrade.id,
-    },
-  });
-
   const englishClass = await prisma.class.create({
     data: {
       name: "English 6A",
@@ -53,13 +38,48 @@ async function main() {
     },
   });
 
-  await prisma.lesson.create({
-    data: {
+  const textbook = await prisma.textbook.upsert({
+    where: { name: "Demo English Curriculum" },
+    update: {},
+    create: {
+      name: "Demo English Curriculum",
+      publisher: "Demo data",
+    },
+  });
+
+  const unit = await prisma.unit.upsert({
+    where: {
+      textbookId_grade_number: {
+        textbookId: textbook.id,
+        grade: 6,
+        number: 1,
+      },
+    },
+    update: { title: "Daily Activities" },
+    create: {
+      textbookId: textbook.id,
+      grade: 6,
+      number: 1,
       title: "Daily Activities",
-      description: "Learn vocabulary about daily activities",
-      gradeId: englishGrade.id,
-      topicId: topic.id,
-      content: "Wake up, have breakfast, go to school...",
+    },
+  });
+
+  await prisma.lesson.upsert({
+    where: {
+      unitId_number: {
+        unitId: unit.id,
+        number: 1,
+      },
+    },
+    update: {
+      title: "Daily Activities",
+      objectives: "Learn vocabulary about daily activities.",
+    },
+    create: {
+      unitId: unit.id,
+      number: 1,
+      title: "Daily Activities",
+      objectives: "Learn vocabulary about daily activities.",
     },
   });
 
