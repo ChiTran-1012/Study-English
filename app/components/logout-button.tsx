@@ -15,7 +15,7 @@ export default function LogoutButton() {
   };
 
   return (
-    <button onClick={handleLogout}>
+    <button onClick={handleLogout} className="w-full text-left text-sm font-medium text-current hover:underline">
       Đăng xuất
     </button>
   );
